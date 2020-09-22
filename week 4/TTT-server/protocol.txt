@@ -1,0 +1,91 @@
+
+TactTacToe Protocol (TTTP) v1.0
+===============================
+
+
+What state needs to be stored on server?
+- state of board
+- whose turn it is
+- if someone has won
+
+Packets from the server
+-----------------------
+
+JOIN (response) - when the server recieves a JOIN packet, it must decide whether or not the client is allowed to join.
+
+		O 		L 		Datatype 		Desc
+--------------------------------------------------
+		0		4		ascii			packet type: "JOIN"
+		4		1		uint8			join response (see below)
+
+		join response
+		----------------------------
+		(accepted:)
+		0: denied
+		1: player "X"
+		2: player "0"
+		3: spectator
+		(denied:)
+		4: username to short
+		5: username to long
+		6: username has invalid characters
+		7: username already taken
+		8: username not allowed(Profane?)
+		9: game is full
+
+UPDT - the state of the game
+
+		O 		L 		Datatype 		Desc
+-------------------------------------------------------------
+		0		4		ascii			packet type: "UPDT"
+		4		1		uint8			whose turn(1 / 2)
+		5		1		uint8			who's won? (see below)
+		6		9		uint8 x9		the values in spots 1-9
+
+		who's won
+		-------------------------------
+		0: playing the game...(no winner)
+		1: player "X" has won the game
+		2: player "O" has won the game
+		3: players have tied "cats-game"
+		4: the game has been cancelled
+
+CHAT - When recieving a CHAT packet from a client, the server sends this chat packet out to all connected, except for the original sender.
+
+		O 		L 		Datatype 		Desc
+-------------------------------------------------------------
+		0		4		ascii			packet type: "CHAT"
+		4		1		uint8			length of senders username
+		5		2		uint16			length of chat message
+		7		X 		ascii			senders username X = length of username
+		7+X 	Y 		ascii			chat message Y = length of chat message
+
+
+
+Packets from the client
+-----------------------
+
+JOIN (request) - After establishing a connection w/ the server, client will send a JOIN packet w/ a desired username. The server will send back a response.
+
+		O 		L 		Datatype 		Desc
+--------------------------------------------------
+		0		4		ascii			packet type: "JOIN"
+		4		1		uint8 			how long username is (255 max)
+		5		X		ascii			X = desired username for the connected client
+
+CHAT - The player wants to chat.
+
+		O 		L 		Datatype 		Desc
+-------------------------------------------------------------
+		0		4		ascii			packet type: "CHAT"
+		4		2		uint16			length of message
+		6		X 		ascii			X = length of message for chat (65535 max)
+
+PLAY - This packet should be submitted when the play takes their turn.
+
+		O 		L 		Datatype 		Desc
+-------------------------------------------------------------
+		0		4		ascii			packet type: "PLAY"
+		4		1		uint8			X (Column Number)
+		5		1		uint8			Y (Row number)
+		
