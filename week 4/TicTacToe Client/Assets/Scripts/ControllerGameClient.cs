@@ -4,11 +4,23 @@ using UnityEngine;
 
 using System.Net;
 using System.Net.Sockets;
+using TMPro;
+using System;
+
 public class ControllerGameClient : MonoBehaviour
 {
     static ControllerGameClient singleton;
     
     TcpClient socket = new TcpClient();
+
+    Buffer buffer = Buffer.Alloc(0);
+
+    public TMP_InputField inputHost;
+    public TMP_InputField inputPort;
+
+    public Transform panelHostDetails;
+    public Transform panelUsername;
+    public Transform panelGameplay;
 
     void Start()
     {
@@ -24,10 +36,134 @@ public class ControllerGameClient : MonoBehaviour
         }
     }
 
-
-
-    void Update()
+    public void OnButtonConnect()
     {
+        string host = inputHost.text;
+
+        UInt16.TryParse(inputPort.text, out ushort port);
+
+        TryToConnect(host, port);
+    }
+
+    async public void TryToConnect(string host, int port)
+    {
+        if (socket.Connected) return;
+
+        try
+        {
+            await socket.ConnectAsync(host, port);
+
+            StartReceivingPackets();
+        }
+        catch
+        {
+            print("FAILED TO CONNECT...");
+        }
+    }
+
+    async private void StartReceivingPackets()
+    {
+
+        int maxPacketSize = 4096;
         
+        while (socket.Connected)
+        {
+            byte[] data = new byte[4096];
+
+            try
+            {
+                int bytesRead = await socket.GetStream().ReadAsync(data, 0, maxPacketSize);
+
+                buffer.Concat(data, bytesRead);
+
+                ProcessPackets();
+            }
+            catch (Exception e) { }
+        }
+    }
+
+    void ProcessPackets()
+    {
+        if (buffer.Length < 4) return; //not enough data in buffer
+
+        string packetIdentifier = buffer.ReadString(0, 4);
+
+        switch (packetIdentifier)
+        {
+            case "JOIN":
+                if (buffer.Length < 5) return;
+                byte joinResponse = buffer.ReadUInt8(4);
+
+                // TODO: change which screen we're looking at
+                if (joinResponse == 1 || joinResponse == 2 || joinResponse == 3)
+                {
+                    panelHostDetails.gameObject.SetActive(false);
+                    panelUsername.gameObject.SetActive(false);
+                    panelGameplay.gameObject.SetActive(true);
+                }
+                else
+                {
+                    panelHostDetails.gameObject.SetActive(false);
+                    panelUsername.gameObject.SetActive(true);
+                    panelGameplay.gameObject.SetActive(false);
+                }
+
+                buffer.Consume(5);
+
+                break;
+            case "UPDT":
+                if (buffer.Length < 15) return; // not enough data for a UPDT packet
+
+                byte whoseTurn = buffer.ReadUInt8(4);
+                byte gameStatus = buffer.ReadUInt8(5);
+
+                byte[] spaces = new byte[9];
+                for(int i = 0; i < 9; i++)
+                {
+                    spaces[i] = buffer.ReadUInt8(6 + i);
+                }
+
+                // TODO: Switch to gameplay screen
+                panelHostDetails.gameObject.SetActive(false);
+                panelUsername.gameObject.SetActive(false);
+                panelGameplay.gameObject.SetActive(true);
+
+                // TODO: update all of the interface to reflect game state:
+                // - Whose Turn
+                // - 9 space on board
+                // - status
+
+                buffer.Consume(15);
+
+                break;
+            case "CHAT":
+
+                byte usernameLength = buffer.ReadByte(4);
+
+                ushort messageLength = buffer.ReadUInt8(5);
+
+                int fullPacketLength = 7 + usernameLength + messageLength;
+
+                if (buffer.Length < fullPacketLength) return;
+
+                string username = buffer.ReadString(7, usernameLength);
+
+                string message = buffer.ReadString(7 + usernameLength, messageLength);
+
+                // TODO: Switch to gameplay screen...
+                panelHostDetails.gameObject.SetActive(false);
+                panelUsername.gameObject.SetActive(false);
+                panelGameplay.gameObject.SetActive(true);
+                // TODO: Update Chat View
+
+                buffer.Consume(fullPacketLength);
+
+                break;
+            default:
+                print("unknown packet Identifier...");
+
+                buffer.Clear();
+                break;
+        }
     }
 }
