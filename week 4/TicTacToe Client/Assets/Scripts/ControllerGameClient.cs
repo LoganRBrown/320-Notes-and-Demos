@@ -9,7 +9,7 @@ using System;
 
 public class ControllerGameClient : MonoBehaviour
 {
-    static ControllerGameClient singleton;
+    static public ControllerGameClient singleton;
     
     TcpClient socket = new TcpClient();
 
@@ -17,10 +17,11 @@ public class ControllerGameClient : MonoBehaviour
 
     public TMP_InputField inputHost;
     public TMP_InputField inputPort;
+    public TMP_InputField inputUsername;
 
     public Transform panelHostDetails;
     public Transform panelUsername;
-    public Transform panelGameplay;
+    public ControllerGameplay panelGameplay;
 
     void Start()
     {
@@ -33,6 +34,11 @@ public class ControllerGameClient : MonoBehaviour
         {
             singleton = this;
             DontDestroyOnLoad(gameObject); //dont destroy when loading new scenes!
+
+            // show connection screen
+            panelHostDetails.gameObject.SetActive(true);
+            panelUsername.gameObject.SetActive(false);
+            panelGameplay.gameObject.SetActive(false);
         }
     }
 
@@ -43,6 +49,15 @@ public class ControllerGameClient : MonoBehaviour
         UInt16.TryParse(inputPort.text, out ushort port);
 
         TryToConnect(host, port);
+    }
+
+    public void OnButtonUsername()
+    {
+        string user = inputUsername.text;
+
+        Buffer packet = PacketBuilder.Join(user);
+
+        SendPacketToServer(packet);
     }
 
     async public void TryToConnect(string host, int port)
@@ -101,11 +116,18 @@ public class ControllerGameClient : MonoBehaviour
                     panelUsername.gameObject.SetActive(false);
                     panelGameplay.gameObject.SetActive(true);
                 }
+                else if (joinResponse == 9)
+                {
+                    panelHostDetails.gameObject.SetActive(true);
+                    panelUsername.gameObject.SetActive(false);
+                    panelGameplay.gameObject.SetActive(false);
+                }
                 else
                 {
                     panelHostDetails.gameObject.SetActive(false);
                     panelUsername.gameObject.SetActive(true);
                     panelGameplay.gameObject.SetActive(false);
+                    inputUsername.text = ""; 
                 }
 
                 buffer.Consume(5);
@@ -128,10 +150,7 @@ public class ControllerGameClient : MonoBehaviour
                 panelUsername.gameObject.SetActive(false);
                 panelGameplay.gameObject.SetActive(true);
 
-                // TODO: update all of the interface to reflect game state:
-                // - Whose Turn
-                // - 9 space on board
-                // - status
+                panelGameplay.UpdateFromServer(gameStatus, whoseTurn, spaces);
 
                 buffer.Consume(15);
 
@@ -165,5 +184,18 @@ public class ControllerGameClient : MonoBehaviour
                 buffer.Clear();
                 break;
         }
+    }
+
+    async public void SendPacketToServer(Buffer packet)
+    {
+        if (!socket.Connected) return; // not connected to server...
+
+        await socket.GetStream().WriteAsync(packet.bytes, 0, packet.bytes.Length);
+    }
+
+    public void SendPlayPacket(int x, int y)
+    {
+        SendPacketToServer( PacketBuilder.Play(x, y) );
+        
     }
 }
