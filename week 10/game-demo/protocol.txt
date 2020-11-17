@@ -9,7 +9,12 @@ JOIN - Sent when joinging the game, this packet should "register the player".
 	===============================
 	0	4	ascii		"JOIN"
 
+INPT - Current state of the client's input from the player
 
+	0	L	Datatype	Desc
+	===============================
+	0	4	ascii		"INPT"
+	4	1	int8		direction of horizontal input
 
 Packets from server
 ===================
@@ -18,7 +23,8 @@ BALL - The balls's position. sent 60 times per second
 
 	O	L	Datatype	Desc
 	===============================
-	0	4	ascii		"JOIN"
-	4	4	float		x position
-	8	4	float		y position
-	12	4	float		z position
+	0	4	ascii		"BALL"
+	4	4	uint32		timecode/frame number		
+	8	4	float		x position
+	12	4	float		y position
+	16	4	float		z position
