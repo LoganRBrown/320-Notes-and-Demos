@@ -5,4 +5,13 @@ exports.Pawn = class Pawn extends NetworkObject {
 		super();
 		this.classID = "PAWN";
 	}
+
+	serialize(){
+
+		super.serialize();
+
+	}
+	deserialize(){
+
+	}
 }
