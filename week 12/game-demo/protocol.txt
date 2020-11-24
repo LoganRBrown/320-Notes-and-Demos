@@ -19,12 +19,17 @@ INPT - Current state of the client's input from the player
 Packets from server
 ===================
 
-BALL - The balls's position. sent 60 times per second
+REPL - Sent when creating/updating/deleting game objects
 
 	O	L	Datatype	Desc
 	===============================
-	0	4	ascii		"BALL"
-	4	4	uint32		timecode/frame number		
-	8	4	float		x position
-	12	4	float		y position
-	16	4	float		z position
+	0	4	ascii		"REPL"
+	4	1	uint8		1/2/3 (create/update/delete)
+
+	5	1	uint8		how many objects?
+	6	4	ascii		class ID e.x. "PLYR"
+	10	??	serialize	???
+
+	?	1	uint8		how many objects?
+	?	4	ascii		class ID e.x. "PLYR"
+	?	??	serialize	???

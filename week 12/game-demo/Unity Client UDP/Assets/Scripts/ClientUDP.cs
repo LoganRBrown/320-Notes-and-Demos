@@ -33,8 +33,7 @@ public class ClientUDP : MonoBehaviour
 		else
 		{
 			singleton = this;
-
-			ObjectRegistry.RegisterAll();
+			DontDestroyOnLoad(gameObject);
 
 			// set up recieve loop (async)
 			ListenForPackets();
@@ -76,22 +75,73 @@ public class ClientUDP : MonoBehaviour
 		string id = packet.ReadString(0, 4);
 		switch (id)
 		{
-			case "BALL":
-				if (packet.Length < 20) return;
-
-				uint packetNum = packet.ReadUInt32BE(4);
-
-				if (packetNum < ackBallUpdate) return; //ignore packet, it's old news
-
-				ackBallUpdate = packetNum;
-
-				float x = packet.ReadSingleLE(8);
-				float y = packet.ReadSingleLE(12);
-				float z = packet.ReadSingleLE(16);
-
-				ball.position = new Vector3(x, y, z);
-
+			case "REPL":
+				ProcessPacketREPL(packet);
 				break;
+		}
+	}
+
+	private void ProcessPacketREPL(Buffer packet)
+	{
+		if (packet.Length < 5) return;
+
+		int replType = packet.ReadUInt8(4);
+
+		if (replType != 1 && replType != 2 && replType != 3) return;
+
+		int offset = 5;
+
+		while (offset < packet.Length)
+		{
+			if (packet.Length < offset + 5) return;
+
+			int networkID = packet.ReadUInt8(offset + 4);
+
+
+			switch (replType)
+			{
+				case 1: // create
+					string classID = packet.ReadString(offset, 4);
+					NetworkObject obj = ObjectRegistry.SpawnFrom(classID);
+
+					if (obj == null) return; //ERROR: class ID not Found!
+
+					offset += 4; // trim out classID off beginning of packet data
+					Buffer chunk = packet.Slice(offset);
+					offset += obj.Deserialize(chunk);
+
+					NetworkObject.AddObject(obj);
+					break;
+				case 2: // update
+
+					//lookup the object, using network id
+					
+
+					NetworkObject obj2 = NetworkObject.GetObjectbyNetworkID(networkID);
+
+					if (obj2 == null) return;
+
+					offset += 4; // trim out classID off beginning of packet data
+					obj2.Deserialize(packet.Slice(offset)); 
+
+					//update it
+
+					break;
+				case 3: // delete
+
+					//lookup the object, using network id
+
+					NetworkObject obj3 = NetworkObject.GetObjectbyNetworkID(networkID);
+
+					if (obj3 == null) return;
+
+					//delete it
+					NetworkObject.RemoveObject(networkID);
+
+					Destroy(obj3.gameObject);
+
+					break;
+			}
 		}
 	}
 
