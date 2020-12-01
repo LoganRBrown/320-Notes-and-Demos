@@ -93,15 +93,20 @@ public class ClientUDP : MonoBehaviour
 
 		while (offset < packet.Length)
 		{
-			if (packet.Length < offset + 5) return;
-
-			int networkID = packet.ReadUInt8(offset + 4);
+			int networkID = 0;
 
 
 			switch (replType)
 			{
 				case 1: // create
+					if (packet.Length < offset + 5) return;
+
+					networkID = packet.ReadUInt8(offset + 4);
+
 					string classID = packet.ReadString(offset, 4);
+
+					if (NetworkObject.GetObjectbyNetworkID(networkID) != null) return; // ignore if object exists
+
 					NetworkObject obj = ObjectRegistry.SpawnFrom(classID);
 
 					if (obj == null) return; //ERROR: class ID not Found!
@@ -115,7 +120,10 @@ public class ClientUDP : MonoBehaviour
 				case 2: // update
 
 					//lookup the object, using network id
-					
+					if (packet.Length < offset + 5) return;
+
+					networkID = packet.ReadUInt8(offset + 4);
+
 
 					NetworkObject obj2 = NetworkObject.GetObjectbyNetworkID(networkID);
 
@@ -129,6 +137,10 @@ public class ClientUDP : MonoBehaviour
 					break;
 				case 3: // delete
 
+					if (packet.Length < offset + 1) return;
+
+					networkID = packet.ReadUInt8(offset);
+
 					//lookup the object, using network id
 
 					NetworkObject obj3 = NetworkObject.GetObjectbyNetworkID(networkID);
@@ -139,6 +151,8 @@ public class ClientUDP : MonoBehaviour
 					NetworkObject.RemoveObject(networkID);
 
 					Destroy(obj3.gameObject);
+
+					offset++;
 
 					break;
 			}

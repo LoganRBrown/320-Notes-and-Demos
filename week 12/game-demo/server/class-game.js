@@ -20,13 +20,13 @@ exports.Game = class Game {
 		this.server = server;
 		this.update();
 
-		this.spawnObject( new Pawn() );
-
 	}
 	update(){
 
 		this.time += this.dt;
 		this.frame++;
+
+		this.server.update(this); // check clients for disconnects, etc.
 
 		const player = this.server.getPlayer(0);
 
@@ -88,6 +88,22 @@ exports.Game = class Game {
 		const data = obj.serialize();
 
 		packet = Buffer.concat([packet, classID, data]);
+
+		this.server.SendPacketToAll(packet);
+	}
+	removeObject(obj){
+		const index = this.objs.indexOf(obj);
+
+		if(index < 0) return; // object doesn't exist...
+
+		const netID = this.objs[index].networkID; // get Id of object
+
+		this.objs.splice(index, 1); // remove object from array
+
+		const packet = Buffer.alloc(6);
+		packet.write("REPL", 0);
+		packet.writeUInt8(3, 4); // 3 = DELETE
+		packet.writeUInt8(netID, 5);
 
 		this.server.SendPacketToAll(packet);
 	}
