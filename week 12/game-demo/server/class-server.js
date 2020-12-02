@@ -55,11 +55,11 @@ exports.Server = class Server{
 	makeClient(rinfo){
 		const key = this.getKeyFromRinfo(rinfo);
 		const client = new Client(rinfo);
+		this.clients[key] = client;
 
 		//depending on scene (and other conditions) spawn pawn:
 		client.spawnPawn(this.game);
 
-		this.clients[key] = client;
 
 		this.showClientList();
 
@@ -67,6 +67,11 @@ exports.Server = class Server{
 		const packet = this.game.makeREPL(false);
 
 		this.sendPacketToClient(packet, client); // TODO: needs an ACK!!
+
+		const packet2 = Buffer.alloc(5);
+		packet2.write("PAWN", 0);
+		packet2.writeUInt8(client.pawn.networkID, 4);
+		this.sendPacketToClient(packet2, client);
 
 		return client;
 	}
