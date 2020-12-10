@@ -13,7 +13,13 @@ public class ClientUDP : MonoBehaviour
 		private set { _singleton = value; }
 	}
 	
-	UdpClient sock = new UdpClient();
+	static UdpClient sockSending = new UdpClient();
+	static UdpClient sockRecieve = new UdpClient(321);
+
+	public List<RemoteServer> availableServers = new List<RemoteServer>();
+
+	string serverHost = "127.0.0.1";
+	ushort serverPort = 320;
 
 	/// <summary>
 	/// Most recent ball update packet 
@@ -34,13 +40,21 @@ public class ClientUDP : MonoBehaviour
 		{
 			singleton = this;
 			DontDestroyOnLoad(gameObject);
-
-			// set up recieve loop (async)
 			ListenForPackets();
-
-			// send a packet to the server (async)
-			SendPacket(Buffer.From("JOIN"));
 		}
+	}
+
+	public void ConnectToServer(string host, ushort port)
+	{
+		IPEndPoint ep = new IPEndPoint(IPAddress.Parse(host), port);
+		sockSending = new UdpClient(ep.AddressFamily);
+		sockSending.Connect(ep);
+
+		// set up recieve loop (async)
+		//ListenForPackets();
+
+		// send a packet to the server (async)
+		SendPacket(Buffer.From("JOIN"));
 	}
 
 	/// <summary>
@@ -54,9 +68,8 @@ public class ClientUDP : MonoBehaviour
 			UdpReceiveResult res;
 			try
 			{
-				res = await sock.ReceiveAsync();
-				Buffer packet = Buffer.From(res.Buffer);
-				ProcessPacket(packet);
+				res = await sockRecieve.ReceiveAsync();
+				ProcessPacket(res);
 			}
 			catch
 			{
@@ -68,8 +81,12 @@ public class ClientUDP : MonoBehaviour
 	/// This function processes a packet and decides what to do next
 	/// </summary>
 	/// <param name="packet">The packet to send</param>
-	private void ProcessPacket(Buffer packet)
+	private void ProcessPacket(UdpReceiveResult res)
 	{
+		Buffer packet = Buffer.From(res.Buffer);
+
+		IPAddress sender = res.RemoteEndPoint.Address;
+
 		if (packet.Length < 4) return;
 
 		string id = packet.ReadString(0, 4);
@@ -78,7 +95,7 @@ public class ClientUDP : MonoBehaviour
 			case "REPL":
 				ProcessPacketREPL(packet);
 				break;
-			case "PAWN":
+			case "PAWN": //extra packet to indentify WHICH object (network ID) the player controls
 
 				if (packet.Length < 5) return;
 
@@ -93,7 +110,33 @@ public class ClientUDP : MonoBehaviour
 				}
 
 				break;
+			case "HOST":
+
+				if (packet.Length < 7) return;
+
+				ushort port = packet.ReadUInt16BE(4);
+				int nameLength = packet.ReadUInt8(6);
+
+				if (packet.Length < 7 + nameLength) return;
+
+				string name = packet.ReadString(7, nameLength);
+
+				AddToServerList( new RemoteServer(res.RemoteEndPoint, name) );
+
+				break;
 		}
+	}
+
+	private void AddToServerList(RemoteServer server)
+	{
+		if (availableServers.Exists(x => x.serverName != server.serverName))
+		{
+			availableServers.Add(server);
+		}
+
+
+		
+
 	}
 
 	private void ProcessPacketREPL(Buffer packet)
@@ -181,10 +224,11 @@ public class ClientUDP : MonoBehaviour
 	async public void SendPacket(Buffer packet)
 	{
 
-		if (sock == null) return;
+		if (sockSending == null) return;
+		if (!sockSending.Client.Connected) return;
 
 		// TODO: remove literals from next line
-		await sock.SendAsync(packet.bytes, packet.bytes.Length, "127.0.0.1", 320);
+		await sockSending.SendAsync(packet.bytes, packet.bytes.Length);
 	}
 
 	/// <summary>
@@ -192,6 +236,7 @@ public class ClientUDP : MonoBehaviour
 	/// </summary>
 	private void OnDestroy()
 	{
-		sock.Close();
+		sockSending.Close();
+		sockRecieve.Close();
 	}
 }
